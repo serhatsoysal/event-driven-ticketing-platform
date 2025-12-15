@@ -5,8 +5,21 @@ metadata:
   namespace: ticketing-system
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-connections: "10"
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 spec:
   ingressClassName: nginx
+  tls:
+  - hosts:
+    - ticketing.heditra.com
+    secretName: ticketing-tls-secret
   rules:
   - host: ticketing.heditra.com
     http:
@@ -15,7 +28,7 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: api-gateway
+            name: nginx
             port:
-              number: 8080
+              number: 80
 

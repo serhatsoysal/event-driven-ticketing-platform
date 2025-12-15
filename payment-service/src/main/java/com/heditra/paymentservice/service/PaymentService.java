@@ -1,30 +1,30 @@
 package com.heditra.paymentservice.service;
 
-import com.heditra.paymentservice.model.Payment;
+import com.heditra.paymentservice.dto.request.CreatePaymentRequest;
+import com.heditra.paymentservice.dto.response.PaymentResponse;
 import com.heditra.paymentservice.model.PaymentStatus;
 
 import java.util.List;
 
 public interface PaymentService {
-
-    Payment createPayment(Payment payment);
-
-    Payment getPaymentById(Long id);
-
-    Payment getPaymentByTicketId(Long ticketId);
-
-    Payment getPaymentByTransactionId(String transactionId);
-
-    List<Payment> getAllPayments();
-
-    List<Payment> getPaymentsByUserId(Long userId);
-
-    List<Payment> getPaymentsByStatus(PaymentStatus status);
-
-    Payment processPayment(Long paymentId);
-
-    Payment refundPayment(Long paymentId);
-
+    
+    PaymentResponse createPayment(CreatePaymentRequest request);
+    
+    PaymentResponse getPaymentById(Long id);
+    
+    PaymentResponse getPaymentByTicketId(Long ticketId);
+    
+    PaymentResponse getPaymentByTransactionId(String transactionId);
+    
+    List<PaymentResponse> getAllPayments();
+    
+    List<PaymentResponse> getPaymentsByUserId(Long userId);
+    
+    List<PaymentResponse> getPaymentsByStatus(PaymentStatus status);
+    
+    PaymentResponse processPayment(Long paymentId);
+    
+    PaymentResponse refundPayment(Long paymentId);
+    
     void deletePayment(Long id);
 }
-

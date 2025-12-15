@@ -204,12 +204,11 @@ test-results/
 dist/
 build/
 out/
-.gradle/
-.gradlew
-.gradlew.bat
 
 # ============================================
-# Documentation (optional - uncomment if needed)
+# Documentation & API Collections
 # ============================================
+docs/
+postman/
 # docs/_build/
 # site/

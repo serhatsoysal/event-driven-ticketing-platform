@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: saga-orchestrator
+  namespace: ticketing-system
+  labels:
+    app: saga-orchestrator
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: saga-orchestrator
+  template:
+    metadata:
+      labels:
+        app: saga-orchestrator
+        tier: backend
+    spec:
+      containers:
+      - name: saga-orchestrator
+        image: saga-orchestrator-service:1.0.0
+        ports:
+        - containerPort: 8086
+          name: http
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "k8s"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:mysql://mysql:3306/sagadb?createDatabaseIfNotExist=true"
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: SPRING_CLOUD_CONSUL_HOST
+          value: "consul"
+        resources:
+          requests:
+            cpu: 200m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8086
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8086
+          initialDelaySeconds: 30
+          periodSeconds: 10

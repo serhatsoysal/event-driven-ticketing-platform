@@ -16,6 +16,11 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: redis
+      port: 6379
+      timeout: 2000ms
   cloud:
     consul:
       host: consul
@@ -26,6 +31,9 @@ spring:
         health-check-interval: 10s
   kafka:
     bootstrap-servers: kafka:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
     consumer:
       group-id: notification-service-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -33,8 +41,19 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
 
+logging:
+  level:
+    com.heditra: INFO
+    org.springframework: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true

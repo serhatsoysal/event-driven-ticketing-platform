@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,6 +43,12 @@ public class Ticket {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalPrice;
 
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal pricePerTicket;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal totalAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TicketStatus status;
@@ -50,9 +57,21 @@ public class Ticket {
     @Column(nullable = false, updatable = false)
     private LocalDateTime bookingDate;
 
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     @NotNull(message = "Event date is required")
     @Future(message = "Event date must be in the future")
     @Column(nullable = false)
     private LocalDateTime eventDate;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 }
 

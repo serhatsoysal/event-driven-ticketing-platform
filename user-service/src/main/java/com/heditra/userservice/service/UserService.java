@@ -1,26 +1,27 @@
 package com.heditra.userservice.service;
 
-import com.heditra.userservice.model.User;
+import com.heditra.userservice.dto.request.CreateUserRequest;
+import com.heditra.userservice.dto.request.UpdateUserRequest;
+import com.heditra.userservice.dto.response.UserResponse;
 import com.heditra.userservice.model.UserRole;
 
 import java.util.List;
 
 public interface UserService {
-
-    User createUser(User user);
-
-    User getUserById(Long id);
-
-    User getUserByUsername(String username);
-
-    User getUserByEmail(String email);
-
-    List<User> getAllUsers();
-
-    List<User> getUsersByRole(UserRole role);
-
-    User updateUser(Long id, User user);
-
+    
+    UserResponse createUser(CreateUserRequest request);
+    
+    UserResponse getUserById(Long id);
+    
+    UserResponse getUserByUsername(String username);
+    
+    UserResponse getUserByEmail(String email);
+    
+    List<UserResponse> getAllUsers();
+    
+    List<UserResponse> getUsersByRole(UserRole role);
+    
+    UserResponse updateUser(Long id, UpdateUserRequest request);
+    
     void deleteUser(Long id);
 }
-

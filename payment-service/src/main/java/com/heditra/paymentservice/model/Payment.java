@@ -1,13 +1,12 @@
 package com.heditra.paymentservice.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -18,37 +17,34 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Payment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotNull(message = "Ticket ID is required")
     @Column(nullable = false)
     private Long ticketId;
 
-    @NotNull(message = "User ID is required")
     @Column(nullable = false)
     private Long userId;
 
-    @NotNull(message = "Amount is required")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Amount must be greater than 0")
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private PaymentMethod paymentMethod;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private PaymentStatus status;
 
-    @Column(unique = true)
+    @Column(unique = true, length = 100)
     private String transactionId;
 
-    @CreationTimestamp
+    @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 }

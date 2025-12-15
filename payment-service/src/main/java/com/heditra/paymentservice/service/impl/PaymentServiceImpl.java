@@ -1,13 +1,21 @@
 package com.heditra.paymentservice.service.impl;
 
+import com.heditra.events.core.EventPublisher;
+import com.heditra.events.payment.PaymentCompletedEvent;
+import com.heditra.events.payment.PaymentFailedEvent;
+import com.heditra.events.payment.PaymentInitiatedEvent;
+import com.heditra.events.payment.PaymentRefundedEvent;
+import com.heditra.paymentservice.dto.request.CreatePaymentRequest;
+import com.heditra.paymentservice.dto.response.PaymentResponse;
+import com.heditra.paymentservice.exception.PaymentNotFoundException;
+import com.heditra.paymentservice.exception.PaymentProcessingException;
+import com.heditra.paymentservice.mapper.PaymentMapper;
 import com.heditra.paymentservice.model.Payment;
 import com.heditra.paymentservice.model.PaymentStatus;
 import com.heditra.paymentservice.repository.PaymentRepository;
 import com.heditra.paymentservice.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,119 +25,123 @@ import java.util.UUID;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class PaymentServiceImpl implements PaymentService {
 
-    private static final String PAYMENT_CREATED_TOPIC = "payment-created";
-    private static final String PAYMENT_SUCCESS_TOPIC = "payment-success";
-    private static final String PAYMENT_FAILED_TOPIC = "payment-failed";
-    private static final String PAYMENT_REFUNDED_TOPIC = "payment-refunded";
-
     private final PaymentRepository paymentRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final PaymentMapper paymentMapper;
+    private final EventPublisher eventPublisher;
 
     @Override
     @Transactional
-    public Payment createPayment(Payment payment) {
-        log.info("Creating new payment for ticket ID: {}", payment.getTicketId());
+    public PaymentResponse createPayment(CreatePaymentRequest request) {
+        log.info("Creating new payment for ticket ID: {}", request.getTicketId());
 
+        Payment payment = paymentMapper.toEntity(request);
         payment.setStatus(PaymentStatus.PENDING);
         payment.setTransactionId(generateTransactionId());
 
         Payment savedPayment = paymentRepository.save(payment);
-        publishPaymentEvent(PAYMENT_CREATED_TOPIC, savedPayment);
+        
+        publishPaymentInitiatedEvent(savedPayment);
 
         log.info("Payment created successfully with ID: {}", savedPayment.getId());
-        return savedPayment;
+        return paymentMapper.toResponse(savedPayment);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Payment getPaymentById(Long id) {
+    public PaymentResponse getPaymentById(Long id) {
         log.debug("Fetching payment by ID: {}", id);
-        return paymentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Payment not found with ID: " + id));
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new PaymentNotFoundException(id));
+        return paymentMapper.toResponse(payment);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Payment getPaymentByTicketId(Long ticketId) {
+    public PaymentResponse getPaymentByTicketId(Long ticketId) {
         log.debug("Fetching payment by ticket ID: {}", ticketId);
-        return paymentRepository.findByTicketId(ticketId)
-                .orElseThrow(() -> new RuntimeException("Payment not found for ticket ID: " + ticketId));
+        Payment payment = paymentRepository.findByTicketId(ticketId)
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found for ticket ID: " + ticketId));
+        return paymentMapper.toResponse(payment);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public Payment getPaymentByTransactionId(String transactionId) {
+    public PaymentResponse getPaymentByTransactionId(String transactionId) {
         log.debug("Fetching payment by transaction ID: {}", transactionId);
-        return paymentRepository.findByTransactionId(transactionId)
-                .orElseThrow(() -> new RuntimeException("Payment not found for transaction ID: " + transactionId));
+        Payment payment = paymentRepository.findByTransactionId(transactionId)
+                .orElseThrow(() -> new PaymentNotFoundException("Payment not found for transaction ID: " + transactionId));
+        return paymentMapper.toResponse(payment);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<Payment> getAllPayments() {
+    public List<PaymentResponse> getAllPayments() {
         log.debug("Fetching all payments");
-        return paymentRepository.findAll();
+        List<Payment> payments = paymentRepository.findAll();
+        return paymentMapper.toResponseList(payments);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<Payment> getPaymentsByUserId(Long userId) {
+    public List<PaymentResponse> getPaymentsByUserId(Long userId) {
         log.debug("Fetching payments for user ID: {}", userId);
-        return paymentRepository.findByUserId(userId);
+        List<Payment> payments = paymentRepository.findByUserId(userId);
+        return paymentMapper.toResponseList(payments);
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<Payment> getPaymentsByStatus(PaymentStatus status) {
+    public List<PaymentResponse> getPaymentsByStatus(PaymentStatus status) {
         log.debug("Fetching payments by status: {}", status);
-        return paymentRepository.findByStatus(status);
+        List<Payment> payments = paymentRepository.findByStatus(status);
+        return paymentMapper.toResponseList(payments);
     }
 
     @Override
     @Transactional
-    public Payment processPayment(Long paymentId) {
+    public PaymentResponse processPayment(Long paymentId) {
         log.info("Processing payment with ID: {}", paymentId);
 
-        Payment payment = getPaymentById(paymentId);
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
-            throw new RuntimeException("Payment is not in PENDING status");
+            throw new PaymentProcessingException("Payment is not in PENDING status");
         }
 
         boolean paymentSuccess = executePaymentGateway(payment);
 
         if (paymentSuccess) {
             payment.setStatus(PaymentStatus.SUCCESS);
-            publishPaymentEvent(PAYMENT_SUCCESS_TOPIC, payment);
+            Payment successfulPayment = paymentRepository.save(payment);
+            publishPaymentCompletedEvent(successfulPayment);
             log.info("Payment processed successfully with ID: {}", paymentId);
+            return paymentMapper.toResponse(successfulPayment);
         } else {
             payment.setStatus(PaymentStatus.FAILED);
-            publishPaymentEvent(PAYMENT_FAILED_TOPIC, payment);
+            Payment failedPayment = paymentRepository.save(payment);
+            publishPaymentFailedEvent(failedPayment);
             log.warn("Payment processing failed for ID: {}", paymentId);
+            return paymentMapper.toResponse(failedPayment);
         }
-
-        return paymentRepository.save(payment);
     }
 
     @Override
     @Transactional
-    public Payment refundPayment(Long paymentId) {
+    public PaymentResponse refundPayment(Long paymentId) {
         log.info("Refunding payment with ID: {}", paymentId);
 
-        Payment payment = getPaymentById(paymentId);
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new PaymentNotFoundException(paymentId));
 
         if (payment.getStatus() != PaymentStatus.SUCCESS) {
-            throw new RuntimeException("Only successful payments can be refunded");
+            throw new PaymentProcessingException("Only successful payments can be refunded");
         }
 
         payment.setStatus(PaymentStatus.REFUNDED);
         Payment refundedPayment = paymentRepository.save(payment);
-        publishPaymentEvent(PAYMENT_REFUNDED_TOPIC, refundedPayment);
+        
+        publishPaymentRefundedEvent(refundedPayment);
 
         log.info("Payment refunded successfully with ID: {}", paymentId);
-        return refundedPayment;
+        return paymentMapper.toResponse(refundedPayment);
     }
 
     @Override
@@ -137,15 +149,12 @@ public class PaymentServiceImpl implements PaymentService {
     public void deletePayment(Long id) {
         log.info("Deleting payment with ID: {}", id);
 
-        Payment payment = getPaymentById(id);
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new PaymentNotFoundException(id));
+        
         paymentRepository.delete(payment);
 
         log.info("Payment deleted successfully with ID: {}", id);
-    }
-
-    @KafkaListener(topics = "ticket-created", groupId = "payment-service-group")
-    public void handleTicketCreated(Object ticketData) {
-        log.info("Received ticket-created event: {}", ticketData);
     }
 
     private String generateTransactionId() {
@@ -157,14 +166,82 @@ public class PaymentServiceImpl implements PaymentService {
         return true;
     }
 
-    private void publishPaymentEvent(String topic, Payment payment) {
-        kafkaTemplate.send(topic, payment.getId().toString(), payment)
-                .whenComplete((result, ex) -> {
-                    if (ex == null) {
-                        log.debug("Payment event published to topic: {}", topic);
-                    } else {
-                        log.error("Failed to publish payment event to topic: {}", topic, ex);
-                    }
+    private void publishPaymentInitiatedEvent(Payment payment) {
+        PaymentInitiatedEvent event = PaymentInitiatedEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .aggregateId(payment.getId().toString())
+                .version(1)
+                .paymentId(payment.getId())
+                .ticketId(payment.getTicketId())
+                .userId(payment.getUserId())
+                .amount(payment.getAmount())
+                .paymentMethod(payment.getPaymentMethod().toString())
+                .transactionId(payment.getTransactionId())
+                .build();
+        
+        eventPublisher.publish("payment-initiated", event)
+                .exceptionally(ex -> {
+                    log.error("Failed to publish PaymentInitiatedEvent", ex);
+                    return null;
+                });
+    }
+
+    private void publishPaymentCompletedEvent(Payment payment) {
+        PaymentCompletedEvent event = PaymentCompletedEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .aggregateId(payment.getId().toString())
+                .version(2)
+                .paymentId(payment.getId())
+                .ticketId(payment.getTicketId())
+                .userId(payment.getUserId())
+                .amount(payment.getAmount())
+                .transactionId(payment.getTransactionId())
+                .build();
+        
+        eventPublisher.publish("payment-completed", event)
+                .exceptionally(ex -> {
+                    log.error("Failed to publish PaymentCompletedEvent", ex);
+                    return null;
+                });
+    }
+
+    private void publishPaymentFailedEvent(Payment payment) {
+        PaymentFailedEvent event = PaymentFailedEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .aggregateId(payment.getId().toString())
+                .version(2)
+                .paymentId(payment.getId())
+                .ticketId(payment.getTicketId())
+                .userId(payment.getUserId())
+                .amount(payment.getAmount())
+                .transactionId(payment.getTransactionId())
+                .failureReason("Gateway rejected payment")
+                .build();
+        
+        eventPublisher.publish("payment-failed", event)
+                .exceptionally(ex -> {
+                    log.error("Failed to publish PaymentFailedEvent", ex);
+                    return null;
+                });
+    }
+
+    private void publishPaymentRefundedEvent(Payment payment) {
+        PaymentRefundedEvent event = PaymentRefundedEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .aggregateId(payment.getId().toString())
+                .version(3)
+                .paymentId(payment.getId())
+                .ticketId(payment.getTicketId())
+                .userId(payment.getUserId())
+                .amount(payment.getAmount())
+                .transactionId(payment.getTransactionId())
+                .refundReason("User requested refund")
+                .build();
+        
+        eventPublisher.publish("payment-refunded", event)
+                .exceptionally(ex -> {
+                    log.error("Failed to publish PaymentRefundedEvent", ex);
+                    return null;
                 });
     }
 }

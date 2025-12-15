@@ -2,10 +2,15 @@ FROM maven:3.9-eclipse-temurin-21-alpine AS builder
 
 WORKDIR /build
 
-COPY pom.xml .
-RUN mvn dependency:go-offline
+# Build and install common event library
+COPY common-event-library /common-event-library
+WORKDIR /common-event-library
+RUN mvn clean install -DskipTests
 
-COPY src ./src
+# Build inventory service
+WORKDIR /build
+COPY inventory-service/pom.xml .
+COPY inventory-service/src ./src
 RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine

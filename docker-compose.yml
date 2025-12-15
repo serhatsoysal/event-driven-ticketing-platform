@@ -178,10 +178,27 @@ services:
       - ticketing-network
     restart: on-failure
 
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api-gateway
+    networks:
+      - ticketing-network
+    restart: on-failure
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+
   ticket-service:
     build:
-      context: ./ticket-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./ticket-service/Dockerfile
     container_name: ticket-service
     ports:
       - "8081:8081"
@@ -202,8 +219,8 @@ services:
 
   user-service:
     build:
-      context: ./user-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./user-service/Dockerfile
     container_name: user-service
     ports:
       - "8082:8082"
@@ -224,8 +241,8 @@ services:
 
   payment-service:
     build:
-      context: ./payment-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./payment-service/Dockerfile
     container_name: payment-service
     ports:
       - "8083:8083"
@@ -244,8 +261,8 @@ services:
 
   notification-service:
     build:
-      context: ./notification-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./notification-service/Dockerfile
     container_name: notification-service
     ports:
       - "8084:8084"
@@ -264,8 +281,8 @@ services:
 
   inventory-service:
     build:
-      context: ./inventory-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./inventory-service/Dockerfile
     container_name: inventory-service
     ports:
       - "8085:8085"
@@ -275,6 +292,24 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    networks:
+      - ticketing-network
+    restart: on-failure
+
+  saga-orchestrator-service:
+    build:
+      context: .
+      dockerfile: ./saga-orchestrator-service/Dockerfile
+    container_name: saga-orchestrator-service
+    ports:
+      - "8086:8086"
+    depends_on:
+      consul:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
     networks:
       - ticketing-network

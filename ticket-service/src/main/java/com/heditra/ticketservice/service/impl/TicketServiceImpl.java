@@ -1,5 +1,9 @@
 package com.heditra.ticketservice.service.impl;
 
+import com.heditra.events.core.EventPublisher;
+import com.heditra.events.ticket.TicketCancelledEvent;
+import com.heditra.events.ticket.TicketCreatedEvent;
+import com.heditra.events.ticket.TicketConfirmedEvent;
 import com.heditra.ticketservice.model.Ticket;
 import com.heditra.ticketservice.model.TicketStatus;
 import com.heditra.ticketservice.repository.TicketRepository;
@@ -10,24 +14,20 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class TicketServiceImpl implements TicketService {
 
-    private static final String TICKET_CREATED_TOPIC = "ticket-created";
-    private static final String TICKET_UPDATED_TOPIC = "ticket-updated";
-    private static final String TICKET_CANCELLED_TOPIC = "ticket-cancelled";
-
     private final TicketRepository ticketRepository;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final EventPublisher eventPublisher;
     private final WebClient webClient;
 
     @Override
@@ -44,7 +44,8 @@ public class TicketServiceImpl implements TicketService {
         }
 
         Ticket savedTicket = ticketRepository.save(ticket);
-        publishTicketEvent(TICKET_CREATED_TOPIC, savedTicket);
+        
+        publishTicketCreatedEvent(savedTicket);
 
         log.info("Ticket created successfully with ID: {}", savedTicket.getId());
         return savedTicket;
@@ -96,7 +97,10 @@ public class TicketServiceImpl implements TicketService {
         ticket.setStatus(status);
 
         Ticket updatedTicket = ticketRepository.save(ticket);
-        publishTicketEvent(TICKET_UPDATED_TOPIC, updatedTicket);
+        
+        if (status == TicketStatus.CONFIRMED) {
+            publishTicketConfirmedEvent(updatedTicket);
+        }
 
         log.info("Ticket status updated successfully for ID: {}", id);
         return updatedTicket;
@@ -117,7 +121,8 @@ public class TicketServiceImpl implements TicketService {
 
         ticket.setStatus(TicketStatus.CANCELLED);
         Ticket cancelledTicket = ticketRepository.save(ticket);
-        publishTicketEvent(TICKET_CANCELLED_TOPIC, cancelledTicket);
+        
+        publishTicketCancelledEvent(cancelledTicket);
 
         log.info("Ticket cancelled successfully with ID: {}", id);
         return cancelledTicket;
@@ -170,14 +175,59 @@ public class TicketServiceImpl implements TicketService {
         }
     }
 
-    private void publishTicketEvent(String topic, Ticket ticket) {
-        kafkaTemplate.send(topic, ticket.getId().toString(), ticket)
-                .whenComplete((result, ex) -> {
-                    if (ex == null) {
-                        log.debug("Ticket event published to topic: {}", topic);
-                    } else {
-                        log.error("Failed to publish ticket event to topic: {}", topic, ex);
-                    }
+    private void publishTicketCreatedEvent(Ticket ticket) {
+        TicketCreatedEvent event = TicketCreatedEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .aggregateId(ticket.getId().toString())
+                .version(1)
+                .ticketId(ticket.getId())
+                .userId(ticket.getUserId())
+                .eventName(ticket.getEventName())
+                .quantity(ticket.getQuantity())
+                .pricePerTicket(ticket.getPricePerTicket())
+                .totalAmount(ticket.getTotalAmount())
+                .build();
+        
+        eventPublisher.publish("ticket-created", event)
+                .exceptionally(ex -> {
+                    log.error("Failed to publish TicketCreatedEvent", ex);
+                    return null;
+                });
+    }
+
+    private void publishTicketConfirmedEvent(Ticket ticket) {
+        TicketConfirmedEvent event = TicketConfirmedEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .aggregateId(ticket.getId().toString())
+                .version(ticket.getVersion() != null ? (int) (ticket.getVersion() + 1) : 1)
+                .ticketId(ticket.getId())
+                .userId(ticket.getUserId())
+                .eventName(ticket.getEventName())
+                .build();
+        
+        eventPublisher.publish("ticket-confirmed", event)
+                .exceptionally(ex -> {
+                    log.error("Failed to publish TicketConfirmedEvent", ex);
+                    return null;
+                });
+    }
+
+    private void publishTicketCancelledEvent(Ticket ticket) {
+        TicketCancelledEvent event = TicketCancelledEvent.builder()
+                .eventId(UUID.randomUUID().toString())
+                .aggregateId(ticket.getId().toString())
+                .version(ticket.getVersion() != null ? (int) (ticket.getVersion() + 1) : 1)
+                .ticketId(ticket.getId())
+                .userId(ticket.getUserId())
+                .eventName(ticket.getEventName())
+                .quantity(ticket.getQuantity())
+                .cancellationReason("User requested cancellation")
+                .build();
+        
+        eventPublisher.publish("ticket-cancelled", event)
+                .exceptionally(ex -> {
+                    log.error("Failed to publish TicketCancelledEvent", ex);
+                    return null;
                 });
     }
 }
