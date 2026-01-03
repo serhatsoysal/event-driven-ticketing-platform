@@ -17,11 +17,6 @@ buildNumber.properties
 # Compiled class files
 *.class
 
-# Log files
-*.log
-logs/
-*.log.*
-
 # Package Files
 *.jar
 *.war
@@ -38,7 +33,6 @@ logs/
 *.iws
 *.iml
 *.ipr
-out/
 .idea_modules/
 atlassian-ide-plugin.xml
 
@@ -51,10 +45,7 @@ atlassian-ide-plugin.xml
 .project
 .settings/
 bin/
-tmp/
-*.tmp
 *.bak
-*.swp
 *~.nib
 local.properties
 .loadpath
@@ -71,12 +62,8 @@ local.properties
 # ============================================
 /nbproject/private/
 /nbbuild/
-/dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
 # ============================================
 # Spring Boot
@@ -88,7 +75,6 @@ HELP.md
 # ============================================
 # Docker
 # ============================================
-.dockerignore
 docker-compose.override.yml
 *.env.local
 .env.local
@@ -123,9 +109,9 @@ data/
 # Logs & Monitoring
 # ============================================
 logs/
+log/
 *.log
 *.log.*
-log/
 prometheus-data/
 grafana-data/
 
@@ -157,7 +143,6 @@ Icon
 .Trashes
 
 # Linux
-*~
 .fuse_hidden*
 .directory
 .Trash-*
@@ -210,5 +195,3 @@ out/
 # ============================================
 docs/
 postman/
-# docs/_build/
-# site/
