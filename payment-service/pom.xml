@@ -16,6 +16,14 @@
     <artifactId>payment-service</artifactId>
     <version>1.0.0</version>
     <name>Payment Service</name>
+    <description>
+        Payment Service is a microservice responsible for processing payment transactions within the distributed ticketing system.
+        It handles payment creation, processing, refunds, and payment status management. The service integrates with the event-driven
+        architecture through Apache Kafka, listening to ticket creation events and publishing payment status events. It implements
+        resilience patterns including circuit breakers and distributed locking for transaction safety. The service maintains payment
+        records in MySQL and utilizes Redis for caching and distributed operations. It exposes RESTful APIs with comprehensive
+        OpenAPI documentation and provides health checks and metrics for observability.
+    </description>
 
     <properties>
         <java.version>21</java.version>
