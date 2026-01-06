@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: user-service
+  cloud:
+    config:
+      enabled: false
+      import-check:
+        enabled: false
+    consul:
+      enabled: false
+      discovery:
+        enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      auto-offset-reset: earliest
+      group-id: user-service-test
+
+eureka:
+  client:
+    enabled: false
+
+server:
+  port: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+

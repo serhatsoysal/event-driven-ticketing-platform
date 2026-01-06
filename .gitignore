@@ -94,6 +94,7 @@ secrets/
 *.crt
 *.p12
 *.jks
+*.keystore
 
 # ============================================
 # Database
@@ -182,6 +183,8 @@ mysql-data/
 .nyc_output
 test-results/
 *.test
+*.exec
+jacoco.exec
 
 # ============================================
 # Build & Deployment

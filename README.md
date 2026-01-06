@@ -1,5 +1,14 @@
 # Ticketing System
 
+[![Build Status](https://github.com/serhatsoysal/ticket-system/workflows/CI%20Pipeline/badge.svg)](https://github.com/serhatsoysal/ticket-system/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/serhatsoysal/ticket-system/workflows/CodeQL%20Security%20Analysis/badge.svg)](https://github.com/serhatsoysal/ticket-system/actions/workflows/codeql.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=serhatsoysal_ticket-system&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=serhatsoysal_ticket-system)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=serhatsoysal_ticket-system&metric=coverage)](https://sonarcloud.io/summary/new_code?id=serhatsoysal_ticket-system)
+[![codecov](https://codecov.io/gh/serhatsoysal/ticket-system/branch/master/graph/badge.svg)](https://codecov.io/gh/serhatsoysal/ticket-system)
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A production-ready, microservices-based distributed ticketing system built with Spring Boot, implementing event-driven architecture and the Saga pattern for distributed transaction management. This system provides a scalable, resilient solution for managing ticket booking operations across multiple services with comprehensive monitoring and observability.
 
 ## Description
@@ -118,30 +127,104 @@ ticketing-system/
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/serhatsoysal/ticket-system.git
    cd ticketing-system
    ```
 
-2. **Build the project:**
+2. **Configure environment variables:**
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # Generate a secure JWT secret
+   # For Windows PowerShell:
+   $bytes = New-Object byte[] 64
+   [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($bytes)
+   [Convert]::ToBase64String($bytes)
+   
+   # For Linux/Mac:
+   openssl rand -base64 64
+   
+   # Edit .env and replace JWT_SECRET with the generated value
+   # Also update other credentials as needed
+   ```
+   
+   **Security Note:** Never commit the `.env` file to version control. Always generate your own secure JWT secret using cryptographically secure random generators (minimum 512 bits).
+
+3. **Build the project:**
    ```bash
    mvn clean install
    ```
 
-3. **Start infrastructure services:**
+4. **Start infrastructure services:**
    ```bash
    docker-compose up -d consul mysql kafka redis elasticsearch prometheus grafana kibana zookeeper
    ```
 
-4. **Wait for services to be healthy:**
+5. **Wait for services to be healthy:**
    ```bash
    docker-compose ps
    docker-compose logs -f
    ```
 
-5. **Start application services:**
+6. **Start application services:**
    ```bash
    docker-compose up -d
    ```
+
+## Environment Configuration
+
+The application requires environment variables to be configured before running. A template file `.env.example` is provided in the repository.
+
+### Setup Steps
+
+1. **Copy the template:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Generate a secure JWT secret:**
+   
+   **For Windows (PowerShell):**
+   ```powershell
+   $bytes = New-Object byte[] 64
+   [Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($bytes)
+   [Convert]::ToBase64String($bytes)
+   ```
+   
+   **For Linux/Mac:**
+   ```bash
+   openssl rand -base64 64
+   ```
+
+3. **Update `.env` file:**
+   - Replace `JWT_SECRET` with your generated value
+   - Update database passwords
+   - Update Redis password
+   - Update Elasticsearch password
+   - Update Grafana admin password
+   - Adjust other configuration values as needed
+
+### Important Security Notes
+
+- **Never commit `.env` file** to version control - it contains sensitive credentials
+- **Always use cryptographically secure random generators** for secrets (minimum 512 bits for JWT)
+- **Change all default passwords** before deploying to production
+- **Use different secrets** for each environment (development, staging, production)
+- The `.env.example` file is safe to commit and serves as a template
+
+### Configuration Variables
+
+The `.env` file contains configuration for:
+- **Database**: MySQL connection settings and credentials
+- **Redis**: Cache and distributed lock configuration
+- **Kafka**: Event streaming configuration
+- **Consul**: Service discovery settings
+- **Elasticsearch**: Search and analytics configuration
+- **JWT**: Security token configuration (requires secure secret)
+- **Ports**: Service port assignments
+- **Monitoring**: Prometheus and Grafana settings
+
 
 ## Usage
 
@@ -485,7 +568,36 @@ Contributions are welcome! Please follow these guidelines:
 
 ## License
 
-This project is proprietary software. All rights reserved.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## CI/CD and Code Quality
+
+This project uses automated CI/CD pipelines and code quality tools:
+
+- **Continuous Integration**: GitHub Actions workflows run on every push and pull request
+- **Security Scanning**: CodeQL analyzes code for security vulnerabilities
+- **Code Quality**: SonarCloud tracks code quality metrics and technical debt
+- **Code Coverage**: JaCoCo generates test coverage reports uploaded to Codecov
+- **Dependency Management**: Dependabot automatically creates PRs for dependency updates
+- **Code Style**: Checkstyle enforces Google Java Style Guide
+
+### Running Quality Checks Locally
+
+```bash
+# Run checkstyle
+mvn checkstyle:check
+
+# Run tests with coverage
+mvn clean test jacoco:report
+
+# View coverage report
+# Open target/site/jacoco/index.html in your browser
+
+# Run SonarCloud analysis (requires SONAR_TOKEN)
+mvn clean verify sonar:sonar \
+  -Dsonar.projectKey=serhatsoysal_ticket-system \
+  -Dsonar.organization=serhatsoysal
+```
 
 ---
 
